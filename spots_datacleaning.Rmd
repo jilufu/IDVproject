@@ -1,0 +1,71 @@
+```{r}
+library(stringr)
+library(dplyr)
+str<- {c("台北101
+九份
+淡水老街
+野柳
+士林夜市
+旗津
+陽明山國家公園
+烏來
+西子灣
+故宮博物院
+台北龍山寺
+高美濕地
+饒河觀光夜市
+田寮月世界
+勝興車站
+日月潭國家風景區
+十分風景特定區
+奮起湖風景區
+六合觀光夜市
+太魯閣國家公園
+墾丁國家公園
+愛河
+淡水紅毛城
+國立中正紀念堂
+阿里山國家森林遊樂區
+安平古堡
+平溪
+小琉球")}
+spot <- strsplit(str,split="\n")
+spots_subset <- function(df) {
+  colnames(df)[2] <- "ScenicSpots"
+  spotdf <- list()
+  
+  for(ii in 1:28){
+  df |> filter(
+    str_detect(ScenicSpots,spot[[1]][ii])
+  ) -> a
+  spotdf <- rbind(spotdf,a)
+    }
+  na.omit(spotdf)-> spotdf
+  return(spotdf)
+}
+```
+
+```{r}
+library(readxl)
+travel2021 <- read_excel("C:/Users/user/Downloads/20220215170343716165.xlsx_.xlsx")
+View(travel2021)
+colnames(travel2021) <- travel2021[1,]
+
+spots_subset(travel2021)->df2021
+```
+
+```{r}
+travel2020 <-read_excel("C:/Users/user/Downloads/20210224150017927476.xlsx_.xlsx")
+View(travel2020)
+colnames(travel2020) <- travel2020[1,]
+
+spots_subset(travel2020)->df2020
+```
+
+```{r}
+travel2019<- read_excel("C:/Users/user/Downloads/2020051109154740924.xlsx_.xlsx")
+View(travel2019)
+colnames(travel2019) <- travel2019[2,]
+
+spots_subset(travel2019)->df2019
+```
