@@ -69,3 +69,7 @@ colnames(travel2019) <- travel2019[2,]
 
 spots_subset(travel2019)->df2019
 ```
+```{r}
+
+```
+
