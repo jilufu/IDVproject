@@ -70,6 +70,13 @@ colnames(travel2019) <- travel2019[2,]
 spots_subset(travel2019)->df2019
 ```
 ```{r}
+df2019 |> jsonlite::toJSON() ->dfjson
+dfjson |> xfun::write_utf8(con="2019data.json")
 
+df2020 |> jsonlite::toJSON() ->dfjson
+dfjson |> xfun::write_utf8(con="2020data.json")
+
+df2021 |> jsonlite::toJSON() ->dfjson
+dfjson |> xfun::write_utf8(con="2021data.json")
 ```
 

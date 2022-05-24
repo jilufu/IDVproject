@@ -1,0 +1,852 @@
+```{r,eval=T, echo=F}
+klippy::klippy()
+```
+
+# Trace and Legend
+
+## Trace 
+
+Trace是圖例legend的最小單位, 圖例的每個項目(legend item)都是一個trace.  
+  
+沒有圖例表示整個plot是one trace.
+```{r}
+library(plotly)
+# No legend: only one trace
+plotly::plot_ly(data=Orange) |>
+  add_trace(x=~age, y=~circumference) # no legend: only one trace
+
+# Color creates 5 legend items: 5
+plotly::plot_ly(data=Orange) |>
+  add_trace(x=~age, y=~circumference, 
+    color=~Tree) -> plt_color # 5 legend items: 5 traces
+plt_color |> econIDV::showWidget()
+```
+
+  * `color` not only serves for color picking purpose, but also serves for traces definition. (Each color is one trace.)
+  
+  * Legend item ranking is based on:
+```{r}
+levels(Orange$Tree)
+```
+
+### legend interaction
+
+  * Single click (**hide** one): (on existing legend item) remove one trace / (on hidden legend item) restore one trace
+  
+  * Double click (**show ONLY** one): (on existing legend item) isolate one trace / (on hiddenlegend item) restore all traces
+  
+**Legend click** serves as a filtering tool.
+
+### color mapping
+
+You can manually define color mapping:
+```{r}
+# create 5 colors
+pal5 = scales::hue_pal()(n=5)
+scales::show_col(pal5) 
+
+plotly::plot_ly(data=Orange) |>
+  add_trace(x=~age, y=~circumference, 
+    color=~Tree, colors=pal5)
+```
+
+  * The color mapping is from `levels({color variable})` to `pal5`.
+
+### refine traces
+
+Sometimes we want to split every trace based on some variable. We can use `split`.
+
+When `color` and `split` are both there, traces are created by `color:split` (the interaction of two) whose number of used levels is the number of traces.
+
+
+```{r}
+# split 
+plotly::plot_ly(data=Orange) |>
+  add_trace(x=~age, y=~circumference, color=~Tree,
+    split=~(age>1000)) -> plt_colorSplit # 5 legend items: 5 traces
+plt_colorSplit |> econIDV::showWidget()
+```
+
+
+<div class="alert alert-info">
+Another way of creating traces is to use `add_xxx` many times.
+```{r}
+plot_ly(x=~age, y=~circumference) |>
+  add_trace(
+    data=Orange |> dplyr::filter(Tree==1),
+    color=I("blue")
+  ) |>
+  add_trace(
+    data=Orange |> dplyr::filter(Tree==2),
+    color=I("green")
+  )
+```
+</div>
+
+
+### legend item labels
+
+  * determined by trace names.
+
+Create trace names:
+```{r}
+Orange |> 
+  dplyr::mutate(
+    trace_name=factor(Tree):factor((age > 1000))
+  ) -> Orange
+levels(Orange$trace_name)
+
+levels(Orange$trace_name) <- c("3:young", "3:old", "1:young", "1:old", "5:young", "5:old", "2:young", "2:old", "4:young", "4:old")
+
+```
+
+```{r}
+plotly::plot_ly(data=Orange) |>
+  add_trace(
+    x=~age, y=~circumference,
+    # color and split define traces (legend item)
+    color=~Tree,
+    split=~(age>1000),
+    # name defines legend item name (label)
+    name=~trace_name) -> plt_colorSplitName
+plt_colorSplitName |> econIDV::showWidget()
+```
+
+
+
+## Style
+
+Attributes within an `add_xxx` function can be restyled ad hoc using `plotly::style()`:
+
+```{r}
+plotly::plot_ly(data=Orange) |>
+  add_trace(x=~age, y=~circumference, 
+    color=I("black"), split=~Tree) -> plt0
+plt0
+```
+
+```{r}
+plt0 |>
+  plotly::style(
+    marker=list(color="red"),
+    traces=1:3
+  ) 
+```
+
+  * trace number is based on legend item order from top to bottom.
+  
+```{r}
+plt0 |> 
+  plotly::style(
+    marker=list(symbol="diamond")
+    ) 
+```
+
+  * Without `traces`, it styles all traces.
+
+
+## Election example
+
+```{r}
+examples=econIDV::Examples()
+examples$election()
+examples$election_env$attach()
+```
+
+### data preparation
+
+```{r}
+download_electionData()
+# prepare choropleth map data
+elections |>
+  prepare_choroplethMapData() -> df_elections
+
+# 增加 df_elections$得票率顏色說明
+df_elections |>
+  add_intervalLabels() -> df_elections
+
+df_elections |>
+  as.data.frame() |> # to remove tibble class for row.names assignment
+  create_sf() |>
+  # 移除geometry空的資料, 否則ggplotly會有錯誤
+  econIDV::remove_emptyGeometry() ->
+  sf_elections
+```
+
+### election 2012
+
+```{r sf_election2012}
+sf_elections |> dplyr::filter(年=="2012") -> sf_election2012
+
+sf_election2012 |> 
+  dplyr::mutate(
+    勝黨得票率區間=得票率顏色說明:factor(勝出政黨)
+  ) -> sf_election2012
+
+```
+
+### color mapping
+
+```{r , eval=T, echo=F}
+teachDS::img_centering2("./img/electionColor.png", "90%") #|> browsable()
+```
+
+
+```{r eval=F, echo=T}
+add_trace(
+  color= ~..., colors = ---
+)
+```
+
+  * map `levels(...)` to `---`
+
+```{r}
+pal=generate_palette()
+sf_election2012 |> 
+  plot_ly() |>
+  add_sf(
+    color=~勝黨得票率區間, 
+    colors=pal,
+    alpha=1
+  ) 
+### Something wrong
+```
+
+
+<div class="alert alert-warning">
+Notice that we have 10 colors in `pal` even though legend only has 6 colors shown. The length of `pal` must be the same as the length of `levels(勝黨得票率區間)`.
+</div>
+
+
+<div class="alert alert-info">
+  * You can use `droplevels()` to drop unused levels if feel necessary.
+
+```{r}
+fct = factor(c("b", "b", "c", "a", "a"))
+levels(fct)
+
+fct2 = fct[-3] 
+levels(fct2)
+
+fct2dropped = droplevels(fct2)
+levels(fct2dropped)
+```
+
+</div>
+
+```{r}
+.intervals = 
+  levels(sf_election2012$勝黨得票率區間)
+
+# Check current mapping
+econIDV::show_col2(pal, .intervals)
+```
+
+We want legend to show from 
+
+  * 0-50:國民黨 to 65-100:國民黨, then
+  * 0-50:民進黨 to 65-100:民進黨
+
+Reorder `pal` if necessary:
+```{r}
+c(rev(pal[1:5]), pal[6:10]) -> twoPartyPals
+econIDV::show_col2(twoPartyPals, .intervals)
+```
+
+
+Reorder `.intervals` if necessary:
+```{r}
+.intervals[c(9,7,5,3,1)]
+.intervals[c(
+  seq(9,1,-2),
+  seq(10,2, -2)
+)] -> .intervals2
+
+# Change levels order
+sf_election2012$勝黨得票率區間2 <-
+  factor(
+    sf_election2012$勝黨得票率區間,
+    levels=.intervals2
+  )
+
+econIDV::show_col2(twoPartyPals,
+  levels(sf_election2012$勝黨得票率區間2)
+  )
+```
+
+```{r}
+sf_election2012 |> 
+  plot_ly() |>
+  add_sf(
+    color=~`勝黨得票率區間2`,
+    colors=twoPartyPals,
+    alpha=1
+  ) -> plt_color
+plt_color
+```
+
+### Legend item labels
+
+Item labels are determined by **trace names**. 
+
+```{r}
+sf_election2012$trace_name = 
+  sf_election2012$勝黨得票率區間2
+levels(sf_election2012$trace_name)
+oldLevels =
+  levels(sf_election2012$trace_name)
+
+oldLevels |>
+  stringr::str_sub(end = -5) -> newLevels
+newLevels
+newLevels -> 
+  levels(sf_election2012$trace_name)
+sf_election2012$trace_name
+oldLevels
+newLevels
+```
+
+```{r}
+sf_election2012 |> 
+  plot_ly() |>
+  add_sf(
+    name=~trace_name,
+    color=~`勝黨得票率區間2`,
+    colors=twoPartyPals,
+    alpha=1
+  ) -> plt_color
+plt_color
+```
+
+### Legend group
+
+```{r}
+sf_election2012 |> 
+  plot_ly() |>
+  add_sf(
+    legendgroup=~勝出政黨,
+    name=~trace_name,
+    color=~`勝黨得票率區間2`,
+    colors=twoPartyPals,
+    alpha=1
+  ) -> plt_color
+plt_color
+```
+
+### Legend group titles
+
+```{r , eval=T, echo=F}
+teachDS::img_centering2("./img/legendgrouptitle.png", "80%")
+```
+
+
+```{r}
+plt_color |>
+  plotly::style(
+    legendgrouptitle=list(
+      text="國民黨"
+    ),
+    traces=1
+  ) |>
+  plotly::style(
+    legendgrouptitle=list(
+      text="民進黨"
+    ),
+    traces=2
+  )
+```
+
+<div class="alert alert-warning">
+
+  * `legendgroup` serves as a trace aggregation tool. So we are left with only two traces.
+
+</div>
+
+### Summary
+
+
+```{r , eval=T, echo=F}
+teachDS::img_centering2("./img/legendgroupElection.png", "80%")
+```
+
+## Subplot of Election Maps
+
+### Data preparation
+
+```{r}
+examples=econIDV::Examples()
+examples$election()
+examples$election_env$attach()
+download_electionData()
+# prepare choropleth map data
+elections |>
+  prepare_choroplethMapData() |>
+  # 增加 df_elections$得票率顏色說明
+  add_intervalLabels() |>
+  dplyr::mutate(
+    勝黨得票率區間=得票率顏色說明:factor(勝出政黨)
+  ) |>
+  # 增加 勝黨得票率區間2
+  add_adjustedWinningPartyVoteShare() |>
+  # 增加 trace_name
+  add_trace_name() -> df_elections
+
+df_elections |>
+  as.data.frame() |> # to remove tibble class for row.names assignment
+  create_sf() |>
+  # 移除geometry空的資料, 否則ggplotly會有錯誤
+  econIDV::remove_emptyGeometry() ->
+  sf_elections
+```
+
+準備勝黨調色盤
+```{r}
+twoPartyPals <- get_twoPartyPals()
+```
+
+標籤格式函數：
+```{r}
+scales::label_percent(accuracy=0.01, scale=1) -> label_share
+```
+
+  * `accuracy`進位到0.01。
+  
+  * `scale`: 決定原數字要先放大多少倍。如果原數字假設有0.03298代表3.298%, 那`scale=100`。
+
+切出三年資料
+```{r}
+sf_electionsByYears <- 
+  sf_elections |> split(sf_elections$年)
+```
+
+### Plotly by year
+
+Each year we plot the graph using:
+```{r}
+plotly::plot_ly() |>
+  add_sf(
+    data=sf_electionsByYears[[.x]],
+    ...,
+    color=~勝黨得票率區間2,
+    colors=twoPartyPals,
+    alpha=1
+  ) 
+```
+
+where `...` will be used to explored difference scenarios.
+
+<div class="alert alert-warning">
+記得`levels(勝黨得票率區間2)`的長度必需和`twoPartyPals`的長度相同，且其對應關係為所要的對應。
+`alpha=1`才能避免內定淡色效果。
+</div>
+
+### Group by 地區 
+
+
+```{r , eval=T, echo=F}
+tags$a(
+  href="https://tpemartin.github.io/econIDV/election_groupTitleRank.html", target="_blank",teachDS::img_centering2("./img/legendgroupTitleRank.png", "95%"))
+```
+
+```{r}
+list_splitByCounties <- vector("list", 3)
+for(.x in 1:3){
+  plotly::plot_ly() |>
+    add_sf(
+      data=sf_electionsByYears[[.x]],
+      legendgroup=~地區,
+      name=~label_share(勝出政黨得票率),
+      color=~勝黨得票率區間2,
+      colors=twoPartyPals,
+      alpha=1
+    ) -> list_splitByCounties[[.x]]
+}
+
+plotly::subplot(list_splitByCounties) -> subplot0
+subplot0
+```
+
+<div class="alert alert-info">
+Legend groups的出現順序是看每一張圖的`name`對應變數的文字排序來決定，由第一張圖開始:
+```{r}
+sf_electionsByYears[[1]]$地區[
+  order(
+    label_share(sf_electionsByYears[[1]]$勝出政黨得票率))
+] -> .grouptitles
+.grouptitles
+```
+
+  * 若已包含所有地區則不再看後面圖形的相同規則排序。
+</div>
+
+### Adding legendgrouptitles
+
+這裡有19個legendgrouptitle要加上去:
+
+```{r}
+subplot0 |> 
+  plotly::style(
+    legendgrouptitle=list(text=.grouptitles[[1]]),
+    traces=1
+  ) |> ... |>
+  plotly::style(
+    legendgrouptitle=list(text=.grouptitles[[19]]),
+    traces=19
+  )
+```
+
+使用迴圈
+```{r}
+p = subplot0
+for(.x in 1:19){
+  p=plotly::style(
+    p,
+    legendgrouptitle=list(text=.grouptitles[[.x]]),
+    traces=.x
+  )
+}
+p
+```
+
+### Change trace order
+
+If you want trace order to be:
+```{r}
+c("臺北市", "桃園市", "新竹市", "苗栗縣", "臺中市", 
+"彰化縣", "雲林縣", "嘉義市", "臺南市", "高雄市", 
+"屏東縣", "基隆市", "新北市", "新竹縣", "宜蘭縣", 
+"南投縣", "花蓮縣", "嘉義縣", "臺東縣") -> citiesInOrder
+```
+
+You can assign each trace a **legendrank** (0-1000). Smaller number goes to the top.
+
+```{r}
+city2rankMapping = 1:19
+names(city2rankMapping) <- citiesInOrder
+```
+
+```{r}
+p |> 
+  plotly::style(
+    legendrank=city2rankMapping[[.grouptitles[[1]]]],
+    traces=1
+  ) |> ...|>
+  plotly::style(
+    legendrank=city2rankMapping[[.grouptitles[[19]]]],
+    traces=19
+  )   
+```
+
+```{r}
+for(.x in 1:19){
+  p=plotly::style(
+    p,
+    legendrank=city2rankMapping[[.grouptitles[[.x]]]],
+    traces=.x
+  )
+}
+p
+```
+
+
+```{r}
+p |>
+  plotly::layout(
+    legend=list(
+      title=list(
+        text="得票率"
+      ),
+      orientation="h"
+    )
+    )|> econIDV::showWidget()
+```
+
+### Complete program
+
+```{r}
+list_splitByCounties <- vector("list", 3)
+for(.x in 1:3){
+  plotly::plot_ly() |>
+    add_sf(
+      data=sf_electionsByYears[[.x]],
+      legendgroup=~地區,
+      name=~label_share(勝出政黨得票率),
+      color=~勝黨得票率區間2,
+      colors=twoPartyPals,
+      alpha=1
+    ) -> list_splitByCounties[[.x]]
+}
+
+plotly::subplot(list_splitByCounties) -> subplot0
+
+city2rankMapping = 1:19
+names(city2rankMapping) <- c("臺北市", "桃園市", "新竹市", "苗栗縣", "臺中市", 
+"彰化縣", "雲林縣", "嘉義市", "臺南市", "高雄市", 
+"屏東縣", "基隆市", "新北市", "新竹縣", "宜蘭縣", 
+"南投縣", "花蓮縣", "嘉義縣", "臺東縣")
+
+p = subplot0
+for(.x in 1:19){
+  p=plotly::style(
+    p,
+    legendgrouptitle=list(text=.grouptitles[[.x]]),
+    legendrank=city2rankMapping[[.grouptitles[[.x]]]],
+    traces=.x
+  )
+}
+p |>
+  plotly::layout(
+    legend=list(
+      title=list(
+        text="得票率"
+      ),
+      orientation="h"
+    )
+    ) -> p
+p |> econIDV::showWidget()
+```
+
+
+```{r,echo=FALSE}
+htmltools::save_html(p, "/Users/martinl/Github/econIDV/docs/election_groupTitleRank.html")
+```
+
+### Group by 勝出政黨 
+
+```{r}
+plotly::plot_ly() |>
+    add_sf(
+      data=sf_electionsByYears[[1]],
+      legendgroup=~勝出政黨,
+      name=~得票率顏色說明,
+      # split=~地區,
+      color=~勝黨得票率區間2, colors=twoPartyPals,
+      alpha=1
+    ) |>
+  plotly::style(
+    legendgrouptitle=list(
+      text="國民黨"
+    ),
+    traces=1
+  ) |>
+  plotly::style(
+    legendgrouptitle=list(
+      text="民進黨"
+    ),
+    traces=2
+  )
+```
+
+
+```{r}
+list_splitByCountiesGroupByParties <- vector("list", 3)
+for(.x in 1:3){
+  plotly::plot_ly() |>
+    add_sf(
+      data=sf_electionsByYears[[.x]],
+      legendgroup=~勝出政黨,
+      name=~label_share(勝出政黨得票率),
+      split=~地區,
+      color=~勝黨得票率區間2, colors=twoPartyPals,
+      alpha=1
+    ) -> list_splitByCountiesGroupByParties[[.x]]
+}
+
+plotly::subplot(list_splitByCountiesGroupByParties) -> 
+  subplot_splitByCountiesGroupByParties
+subplot_splitByCountiesGroupByParties |>
+  plotly::style(
+    legendgrouptitle=list(text=htmlEscape("國民黨")),
+    traces=1
+  ) |>
+  plotly::style(
+    legendgrouptitle=list(text="民進黨"),
+    traces=2
+  ) |>
+  plotly::layout(
+    legend=list(
+      title=list(
+        text="得票率"
+      ),
+      orientation="h"
+    )
+    ) -> subplot_splitByCountiesGroupByParties
+subplot_splitByCountiesGroupByParties |> econIDV::showWidget()
+```
+
+## Hide elements
+
+### via css
+
+```{r}
+tagList(
+  `widget`,
+  tags$style("css styling rules")
+)
+```
+
+```{r}
+tagList(
+  subplot_splitByCountiesGroupByParties,
+  tags$style(
+    "g.traces:not(:first-child),rect.scrollbar {display: none;}"
+  )
+)
+```
+
+```{r}
+tagList(
+  subplot_splitByCountiesGroupByParties,
+  htmltools::includeCSS("data/widget.css")
+) |> econIDV::showWidget()
+```
+
+```{r}
+subplot_splitByCountiesGroupByParties |>
+  tagList(
+    tags$style(
+    "g.traces:not(:first-child),rect.scrollbar {display: none;}"
+  )) |> econIDV::showWidget()
+```
+
+
+### legendgroup by 地區
+
+```{r}
+sf_electionsByYears |>
+  plot_allYears(
+    legendgroup=~地區,
+    split=~paste(地區,年, sep = ":")) -> list_plts
+subplot(list_plts) -> subplot0
+```
+
+```{r}
+subplot0 |>
+  econIDV::get_ranked_splitNames() -> ranked_splits
+subplot0 |>
+  econIDV::style_groupTitles_basedOnRankedSplitNames(from=1, to=3) -> subplot1
+
+subplot1 |>
+  plotly::layout(
+    legend=list(font=list(size=1, color="#00000000"), orientation="h")
+  ) |> econIDV::showWidget()
+```
+
+
+```{r echo=F}
+sf_electionsByYears |>
+  plot_allYears(
+    legendgroup=~勝出政黨,
+    split=~paste(地區,年, sep = ":")) -> list_plts1
+subplot(list_plts1) -> subplot1
+subplot1 |> econIDV::showWidget()
+```
+
+### and sharedData by 地區
+
+SharedData links row name across plots. A row name is used to identify **ONE** trace. 
+
+Legend (ungrouped one) item each represents a trace.
+
+Since both click on plot and on legend are dealing with filtering out **ONE** trace at a time. They should be consistent.
+
+  * What used in 
+
+
+```{r}
+examples=econIDV::Examples()
+examples$election()
+examples$election_env$attach()
+download_electionData()
+# prepare choropleth map data
+elections |>
+  prepare_choroplethMapData() -> df_elections
+
+# create new column for split
+#  * can represents each color category
+#  * its levels sequence is adequate. 
+df_elections |>
+  create_newLevels4split() -> df_elections$色標
+
+levels(df_elections$色標)
+levels(df_elections$取色得票率區間)
+
+df_elections |>
+  as.data.frame() |> # to remove tibble class for row.names assignment
+  create_sf() |>
+  # 移除geometry空的資料, 否則ggplotly會有錯誤
+  econIDV::remove_emptyGeometry() ->
+  sf_elections
+```
+
+
+```{r}
+sf_electionsByYears <- 
+  sf_elections |> split(sf_elections$年)
+```
+
+
+```{r}
+# 設定consistent row names, 再轉成sharedData  
+sharedSf = vector("list", 3)
+for(.x in 1:3){
+  row.names(sf_electionsByYears[[.x]]) <- 
+  sf_electionsByYears[[.x]]$地區
+  sharedSf[[.x]] <- 
+    crosstalk::SharedData$new(
+      sf_electionsByYears[[.x]], group="elections"
+    )
+}
+```
+
+row name 為地區
+
+```{r}
+list_plts <- vector("list",3)
+for(.x in 1:3){
+  plotly::plot_ly() |>
+    add_sf(
+      data=sharedSf[[.x]],
+      legendgroup=~地區,
+      split=~paste(地區,年, sep = ":"),
+      color=~I(as.character(得票率顏色)),
+      alpha=1
+    ) -> list_plts[[.x]]
+}
+
+subplot(list_plts) -> subplot0
+subplot0 |> econIDV::showWidget()
+```
+
+```{r}
+subplot0 |>
+  econIDV::get_ranked_splitNames() -> ranked_splits
+subplot0 |>
+  econIDV::style_groupTitles_basedOnRankedSplitNames(from=1, to=3) -> subplot1
+```
+
+
+```{r}
+sf_electionsByYears[[1]] |> View()
+```
+
+
+```{r}
+subplot1 |>
+  plotly::highlight(
+    off="plotly_doubleclick"
+  ) |>
+  plotly::style(
+    name="50%",
+    traces=1
+  ) |>
+  plotly::layout(
+    legend=list(
+      # font=list(size=1, color="#00000000"),
+      orientation="v",
+      itemclick=F) 
+  ) |> econIDV::showWidget()
+```
+
+  * `itemclick=F` prohibit click on item event (double click on legend group event still works).
+  

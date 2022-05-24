@@ -1,0 +1,253 @@
+```{r}
+data2020 <- jsonlite::fromJSON("https://raw.githubusercontent.com/jilufu/IDVproject/master/2020data.json?token=GHSAT0AAAAAABUU7ZDDEKOK4BCIVX454X3UYUMYL4A")
+
+data2021 <- jsonlite::fromJSON("https://raw.githubusercontent.com/jilufu/IDVproject/master/2021data.json?token=GHSAT0AAAAAABUU7ZDDDRQBAOQNY6Q4VBLEYUMYMOA")
+
+data2019 <- jsonlite::fromJSON("https://raw.githubusercontent.com/jilufu/IDVproject/master/2019data.json?token=GHSAT0AAAAAABUU7ZDDHUOI3WQEURJXIPSQYUMYK6Q")
+```
+
+
+```{r}
+location <- jsonlite::fromJSON("https://raw.githubusercontent.com/jilufu/IDVproject/master/locationdf.json?token=GHSAT0AAAAAABUU7ZDCU5TMHQYRXFWBWIA6YUMYN6A")
+
+colnames(location)[1] <-'ScenicSpots'
+as.numeric(location$`緯度`)->location$`緯度`
+as.numeric(location$`經度`)->location$`經度`
+str_replace(location$ScenicSpots,"小野柳風光","小野柳")->location$ScenicSpots
+str_replace(location$ScenicSpots,"嘉義故宮南院","國立故宮博物院南部院區")->location$ScenicSpots
+```
+
+
+```{r}
+library(fuzzyjoin)
+library(dplyr)
+library(stringr)
+```
+
+
+```{r}
+
+
+data_match <- function(data2020, location) {
+        stringdist_join(data2020, location, 
+                  by='ScenicSpots', #match based on team
+                  mode='left', #use left join
+                  method = "jw", #use jw distance metric
+                  max_dist=99, 
+                  distance_col='dist') %>%
+        group_by(ScenicSpots.x) %>%
+        slice_min(order_by=dist, n=1) |> distinct( ScenicSpots.x, .keep_all = TRUE) -> matchingdf
+  #View(matchingdf)
+  
+  #dadet[,-c(4:16)]->matchdf
+  #View(matchdf)
+  
+  #str_extract(matchdf$ScenicSpots.x[2],"[:alpha:]+")->matchdf$ScenicSpots.x[2]
+        colnames(matchingdf)[3] <- "縣市.x"
+        colnames(matchingdf)[20] <- "縣市.y"
+  
+        checkdf <- matchingdf[,c(2,3,18,20)]
+        str_replace_all(checkdf$縣市.y,"台","臺")-> checkdf$縣市.y
+        str_replace_all(checkdf$縣市.y,"屛","屏")-> checkdf$縣市.y
+  
+        for (ii in 1:nrow(checkdf)){
+                str_extract(checkdf$縣市.x[ii],"[:alpha:]+")->checkdf$縣市.x[ii]
+                      }
+  
+        wrongmatch <- data.frame(matrix(ncol = 2, nrow = 0))
+  
+        colnames(wrongmatch) <- c("spotname","spotcountry")
+  
+        for (ii in 1:nrow(checkdf)){
+              if(checkdf$縣市.x[ii]!=checkdf$縣市.y[ii]){
+                          wrongmatch[ nrow(wrongmatch)+1,] <- c(checkdf$ScenicSpots.x[ii],checkdf$縣市.x[ii])
+                      }
+            }
+  
+        if(nrow(wrongmatch)!=0){
+               View(wrongmatch)
+            }
+}
+
+#location |>filter(縣市=="台東縣")
+#location2 <- location
+#str_replace(location2$ScenicSpots,"小野柳風光","小野柳")->location2$ScenicSpots
+
+#location |>filter(縣市=="嘉義縣")->tempdf
+#str_replace(location2$ScenicSpots,"嘉義故宮南院","國立故宮博物院南部院區")->location2$ScenicSpots
+#location2 |>filter(str_detect(ScenicSpots, "國立故宮博物院南部院區"))
+
+data_finalmatching <- function(data2020, location) {
+  stringdist_join(data2020, location, 
+                  by='ScenicSpots', #match based on team
+                  mode='left', #use left join
+                  method = "jw", #use jw distance metric
+                  max_dist=99, 
+                  distance_col='dist') %>%
+    group_by(ScenicSpots.x) %>%
+    slice_min(order_by=dist, n=1)|> distinct(ScenicSpots.x, .keep_all = TRUE) -> finalmatching
+  return(finalmatching)
+}
+
+#View(finalmatching)
+
+```
+
+```{r}
+data_match(data2019,location)
+data_finalmatching(data2019,location)->finaldata2019
+
+data_match(data2020,location)
+data_finalmatching(data2020,location)->finaldata2020
+
+data_match(data2021,location)
+data_finalmatching(data2021,location)->finaldata2021
+```
+
+
+```{r}
+#mp <- econDV2::Map()
+#mp$extract$osmBBox()
+
+
+taiwan_stamen <- ggmap::get_stamenmap(
+  bbox = c(left = 115.895, bottom = 20.992, right = 126.112, top = 26.559),
+  zoom=9,
+  maptype = "toner-lite"
+)
+taiwan0 <- function(){
+  ggmap(taiwan_stamen)
+}
+
+list_gg=vector("list", 3)
+
+#plot1-2019
+colnames(finaldata2019)[16] <- "total"
+as.numeric(finaldata2019$total)->finaldata2019$total
+as.numeric(finaldata2019$緯度)->finaldata2019$緯度
+as.numeric(finaldata2019$經度)->finaldata2019$經度
+finaldata2019$frame <- rep("frame1",times = nrow(finaldata2019))
+taiwan0()+geom_point(
+      data=finaldata2019,
+      mapping = aes(
+        x=經度,
+        y=緯度,
+        size=total,
+        text=ScenicSpots.x,
+        #frame=frame
+      ),
+      color = "red",
+      alpha = 0.5,
+      
+    )->list_gg[[1]]
+
+
+#plot2-2020
+colnames(finaldata2020)[16] <- "total"
+as.numeric(finaldata2020$total)->finaldata2020$total
+as.numeric(finaldata2020$緯度)->finaldata2020$緯度
+as.numeric(finaldata2020$經度)->finaldata2020$經度
+finaldata2020$frame <- rep("frame2",times = nrow(finaldata2020))
+taiwan0()+geom_point(
+      data=finaldata2020,
+      mapping = aes(
+        x=經度,
+        y=緯度,
+        size=total,
+        text=ScenicSpots.x,
+        #frame=frame
+      ),
+      color = "red",
+      alpha = 0.5,
+      
+    )->list_gg[[2]]
+
+
+
+#plot3-2021
+colnames(finaldata2021)[16] <- "total"
+as.numeric(finaldata2021$total)->finaldata2021$total
+as.numeric(finaldata2021$緯度)->finaldata2021$緯度
+as.numeric(finaldata2021$經度)->finaldata2021$經度
+finaldata2021$frame <- rep("frame3",times = nrow(finaldata2021))
+
+taiwan0()+geom_point(
+      data=finaldata2021,
+      mapping = aes(
+        x=經度,
+        y=緯度,
+        size=total,
+        text=ScenicSpots.x,
+        #frame=frame
+      ),
+      color = "red",
+      alpha = 0.5,
+      
+    )->list_gg[[3]]
+
+list_gg |> purrr::map(plotly::ggplotly) -> 
+  list_ggplt
+do.call(plotly::subplot, list_ggplt) -> plt0
+
+plt0
+
+  
+```
+
+
+```{r}
+finaldata2019[,c("ScenicSpots.x","total","緯度","經度","frame")]->data2019_animation
+
+finaldata2020[,c("ScenicSpots.x","total","緯度","經度","frame")]->data2020_animation
+
+finaldata2021[,c("ScenicSpots.x","total","緯度","經度","frame")]->data2021_animation
+```
+
+
+```{r}
+data_animation <- rbind(data2019_animation,data2020_animation,data2021_animation)
+
+taiwan0()+geom_point(
+      data=data_animation,
+      mapping = aes(
+        x=經度,
+        y=緯度,
+        size=total,
+        text=ScenicSpots.x,
+        frame=frame
+      ),
+      color = "red",
+      alpha = 0.5,
+      
+    )->gg0
+plotly::ggplotly(gg0)
+```
+
+
+
+#```{r}
+
+#for (ii in 1:nrow(matchdf)){
+  str_extract(matchdf$ScenicSpots.x[ii],"[:alpha:]+")->matchdf$ScenicSpots.x[ii]
+  str_extract(matchdf$縣市.x[ii],"[:alpha:]+")->matchdf$縣市.x[ii]
+  
+}
+
+
+
+location2 |>filter(str_detect(ScenicSpots, "^小野柳"))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
