@@ -1,0 +1,170 @@
+---
+title: "final project"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: scroll
+  runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+library(dplyr)
+library(plotly)
+```
+
+```{r data}
+jsonlite::fromJSON("https://raw.githubusercontent.com/jilufu/IDVproject/master/barfinaldata.json")->barfinaldata
+
+#inputselect
+Year.Variables <- unique(barfinaldata$year)
+pop.Variables <- c("熱門","冷門")
+
+```
+
+Inputs {.sidebar data-width=200}
+-----------------------------------------------------------------------
+
+```{r}
+
+selectInput(inputId="year_variable", label = "Select Year:", choices = Year.Variables, selected = Year.Variables[1])
+
+ renderUI({
+  tagList(
+    tags$style(type = "text/css", "
+        .irs-min {visibility:hidden !important;}
+        .irs-max {visibility:hidden !important;}
+        .js-irs-0 .irs .irs-min:after {content:'unpopular' !important;}
+        .js-irs-0 .irs .irs-max:after {content:'popular' !important;}
+        .irs-min:after {
+            visibility: visible !important;
+            display: block;
+            background: rgba(151, 197, 233, 1) none repeat scroll 0 0;
+            border-radius: 20px;
+            color: #000000;
+            font-size: 12px;
+            line-height: 1.333;
+            padding: 2px 6px;
+            text-shadow: none;
+            top: 0;
+            cursor: default;
+            display: block;
+            left: 0;
+            position: absolute;}
+        .irs-max:after {
+            visibility: visible !important;
+            display: block;
+            background: rgba(246, 208, 198, 1) none repeat scroll 0 0;
+            border-radius: 20px;
+            color: #000000;
+            font-size: 12px;
+            line-height: 1.333;
+            padding: 2px 6px;
+            text-shadow: none;
+            top: 0;
+            cursor: default;
+            display: block;
+            right: 0;
+            position: absolute;}
+    "),
+    sliderInput(inputId="popular_variable", label="前五大 冷門/熱門 景點", min=0, max=1, value=1, step = 1,ticks=F)
+  
+      )#taglst close
+  })
+ 
+selectInput(inputId="popular2_variable", label = "選 冷門/熱門:", choices = pop.Variables, selected = pop.Variables[1])
+```
+
+
+
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+
+### Chart 1
+
+```{r}
+
+
+quote({
+    .year=input$year_variable
+    .slider=input$popular_variable
+    .pop=input$popular2_variable
+  
+    county <- c("台北","新北","桃園")
+    stringerr <- c("人數","年各地區前五大","景點")
+    barfinaldata|>filter(year==.year&slider==.slider)|>plot_ly(
+          y= ~order[1:5],
+          x=~number[1:5],
+          type = "bar",
+          name = county[1],
+          text = ~spots_name[1:5],
+          marker = list(color = '#97C5E9'),
+          hoverinfo = "text+x",
+          orientation = 'h'
+        )|>add_trace(
+          y= ~order[6:10],
+          x=~number[6:10],
+          type = "bar",
+          name = county[2],
+          text = ~spots_name[6:10],
+          marker = list(color = '#BCDB96'),
+          hoverinfo = "text+x"
+        )|>add_trace(
+          y= ~order[11:15],
+          x=~number[11:15],
+          type = "bar",
+          name = county[3],
+          text = ~spots_name[11:15],
+          marker = list(color = '#ECC567'),
+          hoverinfo = "text+x"
+        )|>layout(
+         xaxis=list(
+           title=list(
+             text=stringerr[1],
+             standoff=0
+           ),
+           zeroline=F
+         ),
+         yaxis=list(
+           showticklabels=T,
+           title=list(
+             text=""
+           ),
+           linecolor="#E5E4E4",
+           zeroline=F,
+           tickvals=c(5,4,3,2,1),
+           ticktext=c("1st","2nd","3rd","4th","5th")
+         ) ,
+         title=list(
+           text=paste0(.year,stringerr[2],.pop,stringerr[3]),
+           pad=list(
+             t=0
+           )
+         ))
+  })->exprobj
+
+
+renderPlotly(exprobj,quoted = TRUE )
+  
+   
+   
+   
+```
+
+Row {data-height=500}
+-----------------------------------------------------------------------
+
+### Chart B
+```{r}
+
+```
+
+
+### Chart C
+
+```{r}
+
+```
+
