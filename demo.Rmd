@@ -73,7 +73,7 @@ selectInput(inputId="year_variable", label = "Select Year:", choices = Year.Vari
       )#taglst close
   })
  
-selectInput(inputId="popular2_variable", label = "選 冷門/熱門:", choices = pop.Variables, selected = pop.Variables[1])
+#selectInput(inputId="popular2_variable", label = "選 冷門/熱門:", choices = pop.Variables, selected = pop.Variables[1])
 ```
 
 
@@ -90,8 +90,12 @@ Row {data-height=500}
 quote({
     .year=input$year_variable
     .slider=input$popular_variable
-    .pop=input$popular2_variable
+    #.pop=input$popular2_variable
   
+    popularstring="熱門"
+    if(input$popular_variable==0){
+      popularstring="冷門"
+    }
     county <- c("台北","新北","桃園")
     stringerr <- c("人數","年各地區前五大","景點")
     barfinaldata|>filter(year==.year&slider==.slider)|>plot_ly(
@@ -138,7 +142,7 @@ quote({
            ticktext=c("1st","2nd","3rd","4th","5th")
          ) ,
          title=list(
-           text=paste0(.year,stringerr[2],.pop,stringerr[3]),
+           text=paste0(.year,stringerr[2],popularstring,stringerr[3]),
            pad=list(
              t=0
            )
